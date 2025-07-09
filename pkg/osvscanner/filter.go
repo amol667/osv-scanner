@@ -14,8 +14,10 @@ import (
 // filterUnscannablePackages removes packages that don't have enough information to be scanned
 // e,g, local packages that specified by path
 func filterUnscannablePackages(scanResults *results.ScanResults) {
-	packageResults := make([]imodels.PackageScanResult, 0, len(scanResults.PackageScanResults))
-	for _, psr := range scanResults.PackageScanResults {
+	originalPackages := scanResults.PackageScanResults
+	packageResults := make([]imodels.PackageScanResult, 0, len(originalPackages))
+	
+	for _, psr := range originalPackages {
 		p := psr.PackageInfo
 
 		switch {
@@ -30,8 +32,8 @@ func filterUnscannablePackages(scanResults *results.ScanResults) {
 		packageResults = append(packageResults, psr)
 	}
 
-	if len(packageResults) != len(scanResults.PackageScanResults) {
-		cmdlogger.Infof("Filtered %d local/unscannable package/s from the scan.", len(scanResults.PackageScanResults)-len(packageResults))
+	if len(packageResults) != len(originalPackages) {
+		cmdlogger.Infof("Filtered %d local/unscannable package/s from the scan.", len(originalPackages)-len(packageResults))
 	}
 
 	scanResults.PackageScanResults = packageResults
@@ -39,8 +41,10 @@ func filterUnscannablePackages(scanResults *results.ScanResults) {
 
 // filterNonContainerRelevantPackages removes packages that are not relevant when doing container scanning
 func filterNonContainerRelevantPackages(scanResults *results.ScanResults) {
-	packageResults := make([]imodels.PackageScanResult, 0, len(scanResults.PackageScanResults))
-	for _, psr := range scanResults.PackageScanResults {
+	originalPackages := scanResults.PackageScanResults
+	packageResults := make([]imodels.PackageScanResult, 0, len(originalPackages))
+	
+	for _, psr := range originalPackages {
 		p := psr.PackageInfo
 
 		// Almost all packages with linux as a SourceName are kernel packages
@@ -52,8 +56,8 @@ func filterNonContainerRelevantPackages(scanResults *results.ScanResults) {
 		packageResults = append(packageResults, psr)
 	}
 
-	if len(packageResults) != len(scanResults.PackageScanResults) {
-		cmdlogger.Infof("Filtered %d non container relevant package/s from the scan.", len(scanResults.PackageScanResults)-len(packageResults))
+	if len(packageResults) != len(originalPackages) {
+		cmdlogger.Infof("Filtered %d non container relevant package/s from the scan.", len(originalPackages)-len(packageResults))
 	}
 
 	scanResults.PackageScanResults = packageResults
@@ -62,9 +66,10 @@ func filterNonContainerRelevantPackages(scanResults *results.ScanResults) {
 // filterIgnoredPackages removes ignore scanned packages according to config. Returns filtered scanned packages.
 func filterIgnoredPackages(scanResults *results.ScanResults) {
 	configManager := &scanResults.ConfigManager
+	originalPackages := scanResults.PackageScanResults
 
-	out := make([]imodels.PackageScanResult, 0, len(scanResults.PackageScanResults))
-	for _, psr := range scanResults.PackageScanResults {
+	out := make([]imodels.PackageScanResult, 0, len(originalPackages))
+	for _, psr := range originalPackages {
 		p := psr.PackageInfo
 		configToUse := configManager.Get(p.Location())
 
@@ -82,8 +87,8 @@ func filterIgnoredPackages(scanResults *results.ScanResults) {
 		out = append(out, psr)
 	}
 
-	if len(out) != len(scanResults.PackageScanResults) {
-		cmdlogger.Infof("Filtered %d ignored package/s from the scan.", len(scanResults.PackageScanResults)-len(out))
+	if len(out) != len(originalPackages) {
+		cmdlogger.Infof("Filtered %d ignored package/s from the scan.", len(originalPackages)-len(out))
 	}
 
 	scanResults.PackageScanResults = out
@@ -92,10 +97,12 @@ func filterIgnoredPackages(scanResults *results.ScanResults) {
 // Filters results according to config, preserving order. Returns total number of vulnerabilities removed.
 func filterResults(results *models.VulnerabilityResults, configManager *config.Manager, allPackages bool) int {
 	removedCount := 0
-	newResults := []models.PackageSource{} // Want 0 vulnerabilities to show in JSON as an empty list, not null.
+	newResults := make([]models.PackageSource, 0, len(results.Results)) // Want 0 vulnerabilities to show in JSON as an empty list, not null.
+	
 	for _, pkgSrc := range results.Results {
 		configToUse := configManager.Get(pkgSrc.Source.Path)
-		var newPackages []models.PackageVulns
+		newPackages := make([]models.PackageVulns, 0, len(pkgSrc.Packages))
+		
 		for _, pkgVulns := range pkgSrc.Packages {
 			newVulns := filterPackageVulns(pkgVulns, configToUse)
 			removedCount += len(pkgVulns.Vulnerabilities) - len(newVulns.Vulnerabilities)
