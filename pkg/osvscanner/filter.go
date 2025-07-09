@@ -16,7 +16,6 @@ import (
 func filterUnscannablePackages(scanResults *results.ScanResults) {
 	originalPackages := scanResults.PackageScanResults
 	packageResults := make([]imodels.PackageScanResult, 0, len(originalPackages))
-	
 	for _, psr := range originalPackages {
 		p := psr.PackageInfo
 
@@ -43,7 +42,6 @@ func filterUnscannablePackages(scanResults *results.ScanResults) {
 func filterNonContainerRelevantPackages(scanResults *results.ScanResults) {
 	originalPackages := scanResults.PackageScanResults
 	packageResults := make([]imodels.PackageScanResult, 0, len(originalPackages))
-	
 	for _, psr := range originalPackages {
 		p := psr.PackageInfo
 
@@ -98,11 +96,10 @@ func filterIgnoredPackages(scanResults *results.ScanResults) {
 func filterResults(results *models.VulnerabilityResults, configManager *config.Manager, allPackages bool) int {
 	removedCount := 0
 	newResults := make([]models.PackageSource, 0, len(results.Results)) // Want 0 vulnerabilities to show in JSON as an empty list, not null.
-	
 	for _, pkgSrc := range results.Results {
 		configToUse := configManager.Get(pkgSrc.Source.Path)
 		newPackages := make([]models.PackageVulns, 0, len(pkgSrc.Packages))
-		
+
 		for _, pkgVulns := range pkgSrc.Packages {
 			newVulns := filterPackageVulns(pkgVulns, configToUse)
 			removedCount += len(pkgVulns.Vulnerabilities) - len(newVulns.Vulnerabilities)
