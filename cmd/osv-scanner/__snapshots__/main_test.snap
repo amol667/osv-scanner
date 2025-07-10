@@ -7,7 +7,7 @@ USAGE:
    osv-scanner scan [command [command options]]
 
 DESCRIPTION:
-   scans projects and container images for dependencies, and checks them against the OSV database.
+   Recursively scans projects and container images for dependencies and checks them against the OSV vulnerability database for known security issues.
 
 COMMANDS:
    source  scans a source project's dependencies for known vulnerabilities using the OSV database.
