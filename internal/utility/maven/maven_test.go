@@ -4,6 +4,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	mavenutil "deps.dev/util/maven"
 	"deps.dev/util/resolve"
 	"deps.dev/util/semver"
 	"github.com/google/osv-scanner/v2/internal/utility/maven"
@@ -155,5 +156,188 @@ func TestCompareVersions(t *testing.T) {
 		if got != tt.want {
 			t.Errorf("CompareVersions(%v, %v, %v): got %b, want %b", tt.vk, tt.a, tt.b, got, tt.want)
 		}
+	}
+}
+
+func TestProjectKey(t *testing.T) {
+	t.Parallel()
+	
+	tests := []struct {
+		name string
+		proj mavenutil.Project
+		want mavenutil.ProjectKey
+	}{
+		{
+			name: "complete project",
+			proj: mavenutil.Project{
+				ProjectKey: mavenutil.ProjectKey{
+					GroupID:    "com.example",
+					ArtifactID: "test-artifact",
+					Version:    "1.0.0",
+				},
+			},
+			want: mavenutil.ProjectKey{
+				GroupID:    "com.example",
+				ArtifactID: "test-artifact",
+				Version:    "1.0.0",
+			},
+		},
+		{
+			name: "missing groupId uses parent",
+			proj: mavenutil.Project{
+				ProjectKey: mavenutil.ProjectKey{
+					ArtifactID: "test-artifact",
+					Version:    "1.0.0",
+				},
+				Parent: mavenutil.Parent{
+					ProjectKey: mavenutil.ProjectKey{
+						GroupID: "com.parent",
+					},
+				},
+			},
+			want: mavenutil.ProjectKey{
+				GroupID:    "com.parent",
+				ArtifactID: "test-artifact",
+				Version:    "1.0.0",
+			},
+		},
+		{
+			name: "missing version uses parent",
+			proj: mavenutil.Project{
+				ProjectKey: mavenutil.ProjectKey{
+					GroupID:    "com.example",
+					ArtifactID: "test-artifact",
+				},
+				Parent: mavenutil.Parent{
+					ProjectKey: mavenutil.ProjectKey{
+						Version: "2.0.0",
+					},
+				},
+			},
+			want: mavenutil.ProjectKey{
+				GroupID:    "com.example",
+				ArtifactID: "test-artifact",
+				Version:    "2.0.0",
+			},
+		},
+		{
+			name: "both missing use parent",
+			proj: mavenutil.Project{
+				ProjectKey: mavenutil.ProjectKey{
+					ArtifactID: "test-artifact",
+				},
+				Parent: mavenutil.Parent{
+					ProjectKey: mavenutil.ProjectKey{
+						GroupID: "com.parent",
+						Version: "3.0.0",
+					},
+				},
+			},
+			want: mavenutil.ProjectKey{
+				GroupID:    "com.parent",
+				ArtifactID: "test-artifact",
+				Version:    "3.0.0",
+			},
+		},
+		{
+			name: "no parent fallback",
+			proj: mavenutil.Project{
+				ProjectKey: mavenutil.ProjectKey{
+					GroupID:    "com.example",
+					ArtifactID: "test-artifact",
+					Version:    "1.0.0",
+				},
+			},
+			want: mavenutil.ProjectKey{
+				GroupID:    "com.example",
+				ArtifactID: "test-artifact",
+				Version:    "1.0.0",
+			},
+		},
+	}
+	
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			
+			got := maven.ProjectKey(tt.proj)
+			if got != tt.want {
+				t.Errorf("ProjectKey() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestGetDependencyManagement(t *testing.T) {
+	t.Parallel()
+	
+	tests := []struct {
+		name     string
+		proj     mavenutil.Project
+		expected int
+	}{
+		{
+			name: "project with dependency management",
+			proj: mavenutil.Project{
+				DependencyManagement: mavenutil.DependencyManagement{
+					Dependencies: []mavenutil.Dependency{
+						{
+							GroupID:    "junit",
+							ArtifactID: "junit",
+							Version:    "4.13.2",
+							Scope:      "test",
+						},
+						{
+							GroupID:    "org.springframework",
+							ArtifactID: "spring-core",
+							Version:    "5.3.21",
+						},
+					},
+				},
+			},
+			expected: 2,
+		},
+		{
+			name: "project without dependency management",
+			proj: mavenutil.Project{
+				ProjectKey: mavenutil.ProjectKey{
+					GroupID:    "com.example",
+					ArtifactID: "test",
+					Version:    "1.0.0",
+				},
+			},
+			expected: 0,
+		},
+		{
+			name: "empty dependency management",
+			proj: mavenutil.Project{
+				DependencyManagement: mavenutil.DependencyManagement{
+					Dependencies: []mavenutil.Dependency{},
+				},
+			},
+			expected: 0,
+		},
+	}
+	
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			
+			got := tt.proj.DependencyManagement.Dependencies
+			
+			if len(got) != tt.expected {
+				t.Errorf("GetDependencyManagement() returned %d dependencies, want %d", len(got), tt.expected)
+				return
+			}
+			
+			if tt.expected > 0 {
+				if got[0].GroupID == "" {
+					t.Error("First dependency should have GroupID")
+				}
+				if got[0].ArtifactID == "" {
+					t.Error("First dependency should have ArtifactID")
+				}
+			}
+		})
 	}
 }
